@@ -5,8 +5,10 @@ matrix:
   include:
     - xcode_scheme: Alamofire iOS
       xcode_destination: OS=9.0,name=iPhone 6 Plus
+      xcode_sdk: iphonesimulator
     - xcode_scheme: Alamofire OSX
       xcode_destination: arch=x86_64
+      xcode_sdk: macosx
 env:
   global:
   - LC_CTYPE=en_US.UTF-8
