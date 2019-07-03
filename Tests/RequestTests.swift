@@ -26,165 +26,15 @@ import Alamofire
 import Foundation
 import XCTest
 
-class RequestInitializationTestCase: BaseTestCase {
-    func testRequestClassMethodWithMethodAndURL() {
-        // Given
-        let urlString = "https://httpbin.org/"
-
-        // When
-        let request = Alamofire.request(urlString)
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "GET")
-        XCTAssertEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertNil(request.response)
-    }
-
-    func testRequestClassMethodWithMethodAndURLAndParameters() {
-        // Given
-        let urlString = "https://httpbin.org/get"
-
-        // When
-        let request = Alamofire.request(urlString, parameters: ["foo": "bar"])
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "GET")
-        XCTAssertNotEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertEqual(request.request?.url?.query, "foo=bar")
-        XCTAssertNil(request.response)
-    }
-
-    func testRequestClassMethodWithMethodURLParametersAndHeaders() {
-        // Given
-        let urlString = "https://httpbin.org/get"
-        let headers = ["Authorization": "123456"]
-
-        // When
-        let request = Alamofire.request(urlString, parameters: ["foo": "bar"], headers: headers)
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "GET")
-        XCTAssertNotEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertEqual(request.request?.url?.query, "foo=bar")
-        XCTAssertEqual(request.request?.value(forHTTPHeaderField: "Authorization"), "123456")
-        XCTAssertNil(request.response)
-    }
-}
-
-// MARK: -
-
-class RequestSubclassRequestPropertyTestCase: BaseTestCase {
-    private enum AuthenticationError: Error {
-        case expiredAccessToken
-    }
-
-    private class AuthenticationAdapter: RequestAdapter {
-        func adapt(_ urlRequest: URLRequest) throws -> URLRequest {
-            throw AuthenticationError.expiredAccessToken
-        }
-    }
-
-    private var sessionManager: SessionManager!
-
-    override func setUp() {
-        super.setUp()
-
-        sessionManager = SessionManager()
-        sessionManager.startRequestsImmediately = false
-
-        sessionManager.adapter = AuthenticationAdapter()
-    }
-
-    func testDataRequestHasURLRequest() {
-        // Given
-        let urlString = "https://httpbin.org/"
-
-        // When
-        let request = sessionManager.request(urlString)
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "GET")
-        XCTAssertEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertNil(request.response)
-    }
-
-    func testDownloadRequestHasURLRequest() {
-        // Given
-        let urlString = "https://httpbin.org/"
-
-        // When
-        let request = sessionManager.download(urlString)
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "GET")
-        XCTAssertEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertNil(request.response)
-    }
-
-    func testUploadDataRequestHasURLRequest() {
-        // Given
-        let urlString = "https://httpbin.org/"
-
-        // When
-        let request = sessionManager.upload(Data(), to: urlString)
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "POST")
-        XCTAssertEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertNil(request.response)
-    }
-
-    func testUploadFileRequestHasURLRequest() {
-        // Given
-        let urlString = "https://httpbin.org/"
-        let imageURL = url(forResource: "rainbow", withExtension: "jpg")
-
-        // When
-        let request = sessionManager.upload(imageURL, to: urlString)
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "POST")
-        XCTAssertEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertNil(request.response)
-    }
-
-    func testUploadStreamRequestHasURLRequest() {
-        // Given
-        let urlString = "https://httpbin.org/"
-        let imageURL = url(forResource: "rainbow", withExtension: "jpg")
-        let imageStream = InputStream(url: imageURL)!
-
-        // When
-        let request = sessionManager.upload(imageStream, to: urlString)
-
-        // Then
-        XCTAssertNotNil(request.request)
-        XCTAssertEqual(request.request?.httpMethod, "POST")
-        XCTAssertEqual(request.request?.url?.absoluteString, urlString)
-        XCTAssertNil(request.response)
-    }
-}
-
-// MARK: -
-
 class RequestResponseTestCase: BaseTestCase {
     func testRequestResponse() {
         // Given
         let urlString = "https://httpbin.org/get"
-
         let expectation = self.expectation(description: "GET request should succeed: \(urlString)")
-
-        var response: DefaultDataResponse?
+        var response: DataResponse<Data?>?
 
         // When
-        Alamofire.request(urlString, parameters: ["foo": "bar"])
+        AF.request(urlString, parameters: ["foo": "bar"])
             .response { resp in
                 response = resp
                 expectation.fulfill()
@@ -201,16 +51,16 @@ class RequestResponseTestCase: BaseTestCase {
 
     func testRequestResponseWithProgress() {
         // Given
-        let randomBytes = 4 * 1024 * 1024
+        let randomBytes = 1 * 1024 * 1024
         let urlString = "https://httpbin.org/bytes/\(randomBytes)"
 
         let expectation = self.expectation(description: "Bytes download progress should be reported: \(urlString)")
 
         var progressValues: [Double] = []
-        var response: DefaultDataResponse?
+        var response: DataResponse<Data?>?
 
         // When
-        Alamofire.request(urlString)
+        AF.request(urlString)
             .downloadProgress { progress in
                 progressValues.append(progress.fractionCompleted)
             }
@@ -241,53 +91,6 @@ class RequestResponseTestCase: BaseTestCase {
         }
     }
 
-    func testRequestResponseWithStream() {
-        // Given
-        let randomBytes = 4 * 1024 * 1024
-        let urlString = "https://httpbin.org/bytes/\(randomBytes)"
-
-        let expectation = self.expectation(description: "Bytes download progress should be reported: \(urlString)")
-
-        var progressValues: [Double] = []
-        var accumulatedData = [Data]()
-        var response: DefaultDataResponse?
-
-        // When
-        Alamofire.request(urlString)
-            .downloadProgress { progress in
-                progressValues.append(progress.fractionCompleted)
-            }
-            .stream { data in
-                accumulatedData.append(data)
-            }
-            .response { resp in
-                response = resp
-                expectation.fulfill()
-            }
-
-        waitForExpectations(timeout: timeout, handler: nil)
-
-        // Then
-        XCTAssertNotNil(response?.request)
-        XCTAssertNotNil(response?.response)
-        XCTAssertNil(response?.data)
-        XCTAssertNil(response?.error)
-        XCTAssertGreaterThanOrEqual(accumulatedData.count, 1)
-
-        var previousProgress: Double = progressValues.first ?? 0.0
-
-        for progress in progressValues {
-            XCTAssertGreaterThanOrEqual(progress, previousProgress)
-            previousProgress = progress
-        }
-
-        if let lastProgress = progressValues.last {
-            XCTAssertEqual(lastProgress, 1.0)
-        } else {
-            XCTFail("last item in progressValues should not be nil")
-        }
-    }
-
     func testPOSTRequestWithUnicodeParameters() {
         // Given
         let urlString = "https://httpbin.org/post"
@@ -303,7 +106,7 @@ class RequestResponseTestCase: BaseTestCase {
         var response: DataResponse<Any>?
 
         // When
-        Alamofire.request(urlString, method: .post, parameters: parameters)
+        AF.request(urlString, method: .post, parameters: parameters)
             .responseJSON { closureResponse in
                 response = closureResponse
                 expectation.fulfill()
@@ -355,7 +158,7 @@ class RequestResponseTestCase: BaseTestCase {
         var response: DataResponse<Any>?
 
         // When
-        Alamofire.request(urlString, method: .post, parameters: parameters)
+        AF.request(urlString, method: .post, parameters: parameters)
             .responseJSON { closureResponse in
                 response = closureResponse
                 expectation.fulfill()
@@ -377,62 +180,506 @@ class RequestResponseTestCase: BaseTestCase {
             XCTFail("form parameter in JSON should not be nil")
         }
     }
-}
 
-// MARK: -
+    // MARK: Serialization Queue
 
-extension Request {
-    fileprivate func preValidate(operation: @escaping () -> Void) -> Self {
-        delegate.queue.addOperation {
-            operation()
-        }
-
-        return self
-    }
-
-    fileprivate func postValidate(operation: @escaping () -> Void) -> Self {
-        delegate.queue.addOperation {
-            operation()
-        }
-
-        return self
-    }
-}
-
-// MARK: -
-
-class RequestExtensionTestCase: BaseTestCase {
-    func testThatRequestExtensionHasAccessToTaskDelegateQueue() {
+    func testThatResponseSerializationWorksWithSerializationQueue() {
         // Given
-        let urlString = "https://httpbin.org/get"
-        let expectation = self.expectation(description: "GET request should succeed: \(urlString)")
-
-        var responses: [String] = []
+        let queue = DispatchQueue(label: "org.alamofire.serializationQueue")
+        let manager = Session(serializationQueue: queue)
+        let expectation = self.expectation(description: "request should complete")
+        var response: DataResponse<Any>?
 
         // When
-        Alamofire.request(urlString)
-            .preValidate {
-                responses.append("preValidate")
-            }
-            .validate()
-            .postValidate {
-                responses.append("postValidate")
-            }
-            .response { _ in
-                responses.append("response")
-                expectation.fulfill()
-            }
+        manager.request("https://httpbin.org/get").responseJSON { (resp) in
+            response = resp
+            expectation.fulfill()
+        }
 
         waitForExpectations(timeout: timeout, handler: nil)
 
         // Then
-        if responses.count == 3 {
-            XCTAssertEqual(responses[0], "preValidate")
-            XCTAssertEqual(responses[1], "postValidate")
-            XCTAssertEqual(responses[2], "response")
-        } else {
-            XCTFail("responses count should be equal to 3")
+        XCTAssertEqual(response?.result.isSuccess, true)
+    }
+
+    // MARK: Encodable Parameters
+
+    func testThatRequestsCanPassEncodableParametersAsJSONBodyData() {
+        // Given
+        let parameters = HTTPBinParameters(property: "one")
+        let expect = expectation(description: "request should complete")
+        var receivedResponse: DataResponse<HTTPBinResponse>?
+
+        // When
+        AF.request("https://httpbin.org/post", method: .post, parameters: parameters, encoder: JSONParameterEncoder.default)
+          .responseDecodable { (response: DataResponse<HTTPBinResponse>) in
+              receivedResponse = response
+              expect.fulfill()
+          }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(receivedResponse?.result.value?.data, "{\"property\":\"one\"}")
+    }
+
+    func testThatRequestsCanPassEncodableParametersAsAURLQuery() {
+        // Given
+        let parameters = HTTPBinParameters(property: "one")
+        let expect = expectation(description: "request should complete")
+        var receivedResponse: DataResponse<HTTPBinResponse>?
+
+        // When
+        AF.request("https://httpbin.org/get", method: .get, parameters: parameters)
+          .responseDecodable { (response: DataResponse<HTTPBinResponse>) in
+              receivedResponse = response
+              expect.fulfill()
+          }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(receivedResponse?.result.value?.args, ["property": "one"])
+    }
+
+    func testThatRequestsCanPassEncodableParametersAsURLEncodedBodyData() {
+        // Given
+        let parameters = HTTPBinParameters(property: "one")
+        let expect = expectation(description: "request should complete")
+        var receivedResponse: DataResponse<HTTPBinResponse>?
+
+        // When
+        AF.request("https://httpbin.org/post", method: .post, parameters: parameters)
+            .responseDecodable { (response: DataResponse<HTTPBinResponse>) in
+                receivedResponse = response
+                expect.fulfill()
         }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(receivedResponse?.result.value?.form, ["property": "one"])
+    }
+
+    // MARK: Lifetime Events
+
+    func testThatAutomaticallyResumedRequestReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .finished)
+    }
+
+    func testThatAutomaticallyAndManuallyResumedRequestReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.resume()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .finished)
+    }
+
+    func testThatManuallyResumedRequestReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.resume()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .finished)
+    }
+
+    func testThatRequestManuallyResumedManyTimesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 3
+
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidFinish = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.resume()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .finished)
+    }
+
+    func testThatRequestManuallySuspendedManyTimesAfterAutomaticResumeOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.suspend()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .suspended)
+    }
+
+    func testThatRequestManuallySuspendedManyTimesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        for _ in 0..<100 {
+            request.suspend()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .suspended)
+    }
+
+    func testThatRequestManuallyCancelledManyTimesAfterAutomaticResumeOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        // Cancellation stops task creation, so don't cancel the request until the task has been created.
+        eventMonitor.requestDidCreateTask = { (_, _) in
+            for _ in 0..<100 {
+                request.cancel()
+            }
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
+
+    func testThatRequestManuallyCancelledManyTimesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 2
+
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        // Cancellation stops task creation, so don't cancel the request until the task has been created.
+        eventMonitor.requestDidCreateTask = { (_, _) in
+            for _ in 0..<100 {
+                request.cancel()
+            }
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
+
+    func testThatRequestManuallyCancelledManyTimesOnManyQueuesOnlyReceivesAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 5
+
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { _ in expect.fulfill() }
+        eventMonitor.requestDidResume = { _ in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        // Fulfill other events that would exceed the expected count. Inverted expectations require the full timeout.
+        eventMonitor.requestDidSuspend = { _ in expect.fulfill() }
+        eventMonitor.requestDidSuspendTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+        // Cancellation stops task creation, so don't cancel the request until the task has been created.
+        eventMonitor.requestDidCreateTask = { (_, _) in
+            DispatchQueue.concurrentPerform(iterations: 100) { i in
+                request.cancel()
+
+                if i == 99 { expect.fulfill() }
+            }
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
+
+    func testThatRequestTriggersAllAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let didReceiveChallenge = expectation(description: "didReceiveChallenge should fire")
+        let taskDidFinishCollecting = expectation(description: "taskDidFinishCollecting should fire")
+        let didReceiveData = expectation(description: "didReceiveData should fire")
+        let willCacheResponse = expectation(description: "willCacheResponse should fire")
+        let didCreateURLRequest = expectation(description: "didCreateURLRequest should fire")
+        let didCreateTask = expectation(description: "didCreateTask should fire")
+        let didGatherMetrics = expectation(description: "didGatherMetrics should fire")
+        let didComplete = expectation(description: "didComplete should fire")
+        let didFinish = expectation(description: "didFinish should fire")
+        let didResume = expectation(description: "didResume should fire")
+        let didResumeTask = expectation(description: "didResumeTask should fire")
+        let didParseResponse = expectation(description: "didParseResponse should fire")
+        let responseHandler = expectation(description: "responseHandler should fire")
+
+        var dataReceived = false
+
+        eventMonitor.taskDidReceiveChallenge = { (_, _, _) in didReceiveChallenge.fulfill() }
+        eventMonitor.taskDidFinishCollectingMetrics = { (_, _, _) in taskDidFinishCollecting.fulfill() }
+        eventMonitor.dataTaskDidReceiveData = { (_, _, _) in
+            guard !dataReceived else { return }
+            // Data may be received many times, fulfill only once.
+            dataReceived = true
+            didReceiveData.fulfill()
+        }
+        eventMonitor.dataTaskWillCacheResponse = { (_, _, _) in willCacheResponse.fulfill() }
+        eventMonitor.requestDidCreateURLRequest = { (_, _) in didCreateURLRequest.fulfill() }
+        eventMonitor.requestDidCreateTask = { (_, _) in didCreateTask.fulfill() }
+        eventMonitor.requestDidGatherMetrics = { (_, _) in didGatherMetrics.fulfill() }
+        eventMonitor.requestDidCompleteTaskWithError = { (_, _, _) in didComplete.fulfill() }
+        eventMonitor.requestDidFinish = { (_) in didFinish.fulfill() }
+        eventMonitor.requestDidResume = { (_) in didResume.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in didResumeTask.fulfill() }
+        eventMonitor.requestDidParseResponse = { (_, _) in didParseResponse.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest()).response { _ in
+            responseHandler.fulfill()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .finished)
+    }
+
+    func testThatCancelledRequestTriggersAllAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let taskDidFinishCollecting = expectation(description: "taskDidFinishCollecting should fire")
+        let didCreateURLRequest = expectation(description: "didCreateURLRequest should fire")
+        let didCreateTask = expectation(description: "didCreateTask should fire")
+        let didGatherMetrics = expectation(description: "didGatherMetrics should fire")
+        let didComplete = expectation(description: "didComplete should fire")
+        let didFinish = expectation(description: "didFinish should fire")
+        let didResume = expectation(description: "didResume should fire")
+        let didResumeTask = expectation(description: "didResumeTask should fire")
+        let didParseResponse = expectation(description: "didParseResponse should fire")
+        let didCancel = expectation(description: "didCancel should fire")
+        let didCancelTask = expectation(description: "didCancelTask should fire")
+        let responseHandler = expectation(description: "responseHandler should fire")
+
+        eventMonitor.taskDidFinishCollectingMetrics = { (_, _, _) in taskDidFinishCollecting.fulfill() }
+        eventMonitor.requestDidCreateURLRequest = { (_, _) in didCreateURLRequest.fulfill() }
+        eventMonitor.requestDidCreateTask = { (_, _) in didCreateTask.fulfill() }
+        eventMonitor.requestDidGatherMetrics = { (_, _) in didGatherMetrics.fulfill() }
+        eventMonitor.requestDidCompleteTaskWithError = { (_, _, _) in didComplete.fulfill() }
+        eventMonitor.requestDidFinish = { (_) in didFinish.fulfill() }
+        eventMonitor.requestDidResume = { (_) in didResume.fulfill() }
+        eventMonitor.requestDidParseResponse = { (_, _) in didParseResponse.fulfill() }
+        eventMonitor.requestDidCancel = { (_) in didCancel.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in didCancelTask.fulfill() }
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest()).response { _ in
+            responseHandler.fulfill()
+        }
+
+        eventMonitor.requestDidResumeTask = { (_, _) in
+            request.cancel()
+            didResumeTask.fulfill()
+        }
+
+        request.resume()
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
+    }
+
+    func testThatAppendingResponseSerializerToCancelledRequestCallsCompletion() {
+        // Given
+        let session = Session()
+
+        var response1: DataResponse<Any>?
+        var response2: DataResponse<Any>?
+
+        let expect = expectation(description: "both response serializer completions should be called")
+        expect.expectedFulfillmentCount = 2
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+
+        request.responseJSON { resp in
+            response1 = resp
+            expect.fulfill()
+
+            request.responseJSON { resp in
+                response2 = resp
+                expect.fulfill()
+            }
+        }
+
+        request.cancel()
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(response1?.error?.asAFError?.isExplicitlyCancelledError, true)
+        XCTAssertEqual(response2?.error?.asAFError?.isExplicitlyCancelledError, true)
+    }
+
+    func testThatAppendingResponseSerializerToCompletedRequestCallsCompletion() {
+        // Given
+        let session = Session()
+
+        var response1: DataResponse<Any>?
+        var response2: DataResponse<Any>?
+
+        let expect = expectation(description: "both response serializer completions should be called")
+        expect.expectedFulfillmentCount = 2
+
+        // When
+        let request = session.request(URLRequest.makeHTTPBinRequest())
+
+        request.responseJSON { resp in
+            response1 = resp
+            expect.fulfill()
+
+            request.responseJSON { resp in
+                response2 = resp
+                expect.fulfill()
+            }
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertNotNil(response1?.value)
+        XCTAssertEqual(response2?.error?.asAFError?.isResponseSerializerAddedAfterRequestFinished, true)
     }
 }
 
@@ -442,27 +689,24 @@ class RequestDescriptionTestCase: BaseTestCase {
     func testRequestDescription() {
         // Given
         let urlString = "https://httpbin.org/get"
-        let request = Alamofire.request(urlString)
-        let initialRequestDescription = request.description
+        let manager = Session(startRequestsImmediately: false)
+        let request = manager.request(urlString)
 
         let expectation = self.expectation(description: "Request description should update: \(urlString)")
 
-        var finalRequestDescription: String?
         var response: HTTPURLResponse?
 
         // When
         request.response { resp in
-            finalRequestDescription = request.description
             response = resp.response
 
             expectation.fulfill()
-        }
+        }.resume()
 
         waitForExpectations(timeout: timeout, handler: nil)
 
         // Then
-        XCTAssertEqual(initialRequestDescription, "GET https://httpbin.org/get")
-        XCTAssertEqual(finalRequestDescription, "GET https://httpbin.org/get (\(response?.statusCode ?? -1))")
+        XCTAssertEqual(request.description, "GET https://httpbin.org/get (\(response?.statusCode ?? -1))")
     }
 }
 
@@ -471,44 +715,48 @@ class RequestDescriptionTestCase: BaseTestCase {
 class RequestDebugDescriptionTestCase: BaseTestCase {
     // MARK: Properties
 
-    let manager: SessionManager = {
-        let manager = SessionManager(configuration: .default)
-        manager.startRequestsImmediately = false
+    let manager: Session = {
+        let manager = Session()
+
         return manager
     }()
 
-    let managerWithAcceptLanguageHeader: SessionManager = {
-        var headers = SessionManager.default.session.configuration.httpAdditionalHeaders ?? [:]
+    let managerWithAcceptLanguageHeader: Session = {
+        var headers = HTTPHeaders.default
         headers["Accept-Language"] = "en-US"
 
-        let configuration = URLSessionConfiguration.default
-        configuration.httpAdditionalHeaders = headers
+        let configuration = URLSessionConfiguration.af.default
+        configuration.headers = headers
 
-        let manager = SessionManager(configuration: configuration)
-        manager.startRequestsImmediately = false
+        let manager = Session(configuration: configuration)
 
         return manager
     }()
 
-    let managerWithContentTypeHeader: SessionManager = {
-        var headers = SessionManager.default.session.configuration.httpAdditionalHeaders ?? [:]
+    let managerWithContentTypeHeader: Session = {
+        var headers = HTTPHeaders.default
         headers["Content-Type"] = "application/json"
 
-        let configuration = URLSessionConfiguration.default
-        configuration.httpAdditionalHeaders = headers
+        let configuration = URLSessionConfiguration.af.default
+        configuration.headers = headers
 
-        let manager = SessionManager(configuration: configuration)
-        manager.startRequestsImmediately = false
+        let manager = Session(configuration: configuration)
 
         return manager
     }()
 
-    let managerDisallowingCookies: SessionManager = {
-        let configuration = URLSessionConfiguration.default
+    func managerWithCookie(_ cookie: HTTPCookie) -> Session {
+        let configuration = URLSessionConfiguration.af.default
+        configuration.httpCookieStorage?.setCookie(cookie)
+
+        return Session(configuration: configuration)
+    }
+
+    let managerDisallowingCookies: Session = {
+        let configuration = URLSessionConfiguration.af.default
         configuration.httpShouldSetCookies = false
 
-        let manager = SessionManager(configuration: configuration)
-        manager.startRequestsImmediately = false
+        let manager = Session(configuration: configuration)
 
         return manager
     }()
@@ -518,24 +766,31 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
     func testGETRequestDebugDescription() {
         // Given
         let urlString = "https://httpbin.org/get"
+        let expectation = self.expectation(description: "request should complete")
 
         // When
-        let request = manager.request(urlString)
+        let request = manager.request(urlString).response { _ in expectation.fulfill() }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
         let components = cURLCommandComponents(for: request)
 
         // Then
         XCTAssertEqual(components[0..<3], ["$", "curl", "-v"])
-        XCTAssertFalse(components.contains("-X"))
+        XCTAssertTrue(components.contains("-X"))
         XCTAssertEqual(components.last, "\"\(urlString)\"")
     }
 
     func testGETRequestWithJSONHeaderDebugDescription() {
         // Given
         let urlString = "https://httpbin.org/get"
+        let expectation = self.expectation(description: "request should complete")
 
         // When
-        let headers: [String: String] = [ "X-Custom-Header": "{\"key\": \"value\"}" ]
-        let request = manager.request(urlString, headers: headers)
+        let headers: HTTPHeaders = [ "X-Custom-Header": "{\"key\": \"value\"}" ]
+        let request = manager.request(urlString, headers: headers).response { _ in expectation.fulfill() }
+
+        waitForExpectations(timeout: timeout, handler: nil)
 
         // Then
         XCTAssertNotNil(request.debugDescription.range(of: "-H \"X-Custom-Header: {\\\"key\\\": \\\"value\\\"}\""))
@@ -544,15 +799,19 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
     func testGETRequestWithDuplicateHeadersDebugDescription() {
         // Given
         let urlString = "https://httpbin.org/get"
+        let expectation = self.expectation(description: "request should complete")
 
         // When
-        let headers = [ "Accept-Language": "en-GB" ]
-        let request = managerWithAcceptLanguageHeader.request(urlString, headers: headers)
+        let headers: HTTPHeaders = [ "Accept-Language": "en-GB" ]
+        let request = managerWithAcceptLanguageHeader.request(urlString, headers: headers).response { _ in expectation.fulfill() }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
         let components = cURLCommandComponents(for: request)
 
         // Then
         XCTAssertEqual(components[0..<3], ["$", "curl", "-v"])
-        XCTAssertFalse(components.contains("-X"))
+        XCTAssertTrue(components.contains("-X"))
         XCTAssertEqual(components.last, "\"\(urlString)\"")
 
         let tokens = request.debugDescription.components(separatedBy: "Accept-Language:")
@@ -564,9 +823,14 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
     func testPOSTRequestDebugDescription() {
         // Given
         let urlString = "https://httpbin.org/post"
+        let expectation = self.expectation(description: "request should complete")
+
 
         // When
-        let request = manager.request(urlString, method: .post)
+        let request = manager.request(urlString, method: .post).response { _ in expectation.fulfill() }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
         let components = cURLCommandComponents(for: request)
 
         // Then
@@ -578,6 +842,7 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
     func testPOSTRequestWithJSONParametersDebugDescription() {
         // Given
         let urlString = "https://httpbin.org/post"
+        let expectation = self.expectation(description: "request should complete")
 
         let parameters = [
             "foo": "bar",
@@ -586,7 +851,12 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
         ]
 
         // When
-        let request = manager.request(urlString, method: .post, parameters: parameters, encoding: JSONEncoding.default)
+        let request = manager.request(urlString, method: .post, parameters: parameters, encoding: JSONEncoding.default).response {
+            _ in expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
         let components = cURLCommandComponents(for: request)
 
         // Then
@@ -614,10 +884,15 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
         ]
 
         let cookie = HTTPCookie(properties: properties)!
-        manager.session.configuration.httpCookieStorage?.setCookie(cookie)
+        let cookieManager = managerWithCookie(cookie)
+        let expectation = self.expectation(description: "request should complete")
+
 
         // When
-        let request = manager.request(urlString, method: .post)
+        let request = cookieManager.request(urlString, method: .post).response { _ in expectation.fulfill() }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
         let components = cURLCommandComponents(for: request)
 
         // Then
@@ -653,34 +928,20 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
     func testMultipartFormDataRequestWithDuplicateHeadersDebugDescription() {
         // Given
         let urlString = "https://httpbin.org/post"
-        let japaneseData = "日本語".data(using: .utf8, allowLossyConversion: false)!
+        let japaneseData = Data("日本語".utf8)
         let expectation = self.expectation(description: "multipart form data encoding should succeed")
 
-        var request: Request?
-        var components: [String] = []
-
         // When
-        managerWithContentTypeHeader.upload(
-            multipartFormData: { multipartFormData in
-                multipartFormData.append(japaneseData, withName: "japanese")
-            },
-            to: urlString,
-            encodingCompletion: { result in
-                switch result {
-                case .success(let upload, _, _):
-                    request = upload
-                    components = self.cURLCommandComponents(for: upload)
-
-                    expectation.fulfill()
-                case .failure:
-                    expectation.fulfill()
-                }
+        let request = managerWithContentTypeHeader.upload(multipartFormData: { (data) in
+            data.append(japaneseData, withName: "japanese")
+        }, to: urlString)
+            .response { _ in
+                expectation.fulfill()
             }
-        )
 
         waitForExpectations(timeout: timeout, handler: nil)
 
-        debugPrint(request!)
+        let components = cURLCommandComponents(for: request)
 
         // Then
         XCTAssertEqual(components[0..<3], ["$", "curl", "-v"])
@@ -696,9 +957,13 @@ class RequestDebugDescriptionTestCase: BaseTestCase {
     func testThatRequestWithInvalidURLDebugDescription() {
         // Given
         let urlString = "invalid_url"
+        let expectation = self.expectation(description: "request should complete")
 
         // When
-        let request = manager.request(urlString)
+        let request = manager.request(urlString).response { _ in expectation.fulfill() }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
         let debugDescription = request.debugDescription
 
         // Then
