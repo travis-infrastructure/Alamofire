@@ -31,7 +31,6 @@ env:
 before_install:
   - gem update --system 2.7.6 # needed for pod lint to work (https://github.com/CocoaPods/CocoaPods/issues/7765)
   - gem install xcpretty cocoapods # normally we install these, but if the project chooses an alternate ruby, they need to install them
-=======
 script:
   - set -o pipefail
   - xcodebuild -version
